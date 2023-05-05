@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo5.mapper.StayPointMapper">
+    <resultMap id="BaseResultMap" type="com.example.demo5.entity.StayPoint">
+        <id column="tid" property="tid" jdbcType="VARCHAR"/>
+        <result column="oid" property="oid"/>
+        <result column="mid_time" property="midTime"/>
+        <result column="centroid" property="centroid"/>
+        <result column="lng" property="lng"/>
+        <result column="lat" property="lat"/>
+        <result column="length" property="length"/>
+        <result column="mbr" property="mbr"/>
+        <result column="duration" property="duration"/>
+        <result column="point" property="point"/>
+        <result column="area" property="area"/>
+    </resultMap>
+<!--    查询结果 stay_point-->
+    <select id="selectDynamic" resultMap="BaseResultMap" resultType="com.example.demo5.entity.StayPoint">
+        with temp1 as(
+            select s.tid, s.oid, s.start_time, s.end_time, s.mid_time, s.time_interval, s.dis_interval, st_astext(s.centroid) as centroid, s.lng, s.lat, st_astext(s.mbr) as mbr, s.duration, s.region, s.point
+            from #{tablename} s
+            where 1=1
+            <if test="sTime != null">
+                and s.mid_time &gt; #{sTime}
+            </if>
+            <if test="eTime != null">
+                and s.mid_time &lt; #{eTime}
+            </if>
+
+            <if test="mbrString != null">
+                and st_contains(st_transform(st_geomfromtext(${mbrString},4326), 3857), s.point)
+            </if>
+        ),
+
+        temp2 as (
+            select temp1.tid, temp1.oid, temp1.start_time, temp1.end_time, temp1.mid_time, temp1.time_interval, temp1.dis_interval, st_astext(temp1.centroid) as centroid, temp1.lng, temp1.lat, st_astext(temp1.mbr) as mbr, temp1.duration, temp1.region, temp1.point
+            from temp1, poi
+            where 1=1
+            <if test="dis1 != null">
+                and st_dwithin(
+                    temp1.point,
+                    poi.geom,
+                    #{dis1}
+                )
+            </if>
+                and poi.poi_type in
+                <foreach item="item1" collection="list1" index="index"
+                         open="(" separator="," close=")">
+                    #{item1}
+                </foreach>
+        )
+--         路网数据查询
+        select temp2.tid, temp2.oid, temp2.start_time, temp2.end_time, temp2.mid_time, temp2.mid_time, temp2.time_interval, st_astext(temp2.centroid) as centroid, temp2.lng, temp2.lat, st_astext(temp2.mbr) as mbr, temp2.duration, temp2.region, temp2.point
+        from temp2, road_net
+        where 1=1
+        <if test="dis2 != null">
+            and st_dwithin(
+            temp2.point,
+            road_net.geom,
+            #{dis2}
+            )
+        </if>
+            and road_net.level in
+            <foreach item="item2" collection="list2" index="index"
+                     open="(" separator="," close=")">
+                #{item2}
+            </foreach>
+    </select>
+
+</mapper>
